@@ -1,5 +1,6 @@
 import scrapy
 import csv
+import uuid  # Import the uuid module
 from urllib.parse import urlsplit
 
 class HuffingtonPostGiftsScraper(scrapy.Spider):
@@ -37,6 +38,7 @@ class HuffingtonPostGiftsDetailsScraper(scrapy.Spider):
 
     def parse(self, response):
         # Extract the required information from each page
+        unique_id = str(uuid.uuid4())  # Generate a UUID
         start_url = response.url
         title = response.css('h1::text').get()
         body_text = ' '.join(response.css('div.primary-cli p::text').getall())
@@ -47,6 +49,7 @@ class HuffingtonPostGiftsDetailsScraper(scrapy.Spider):
 
         # Yield the extracted information as a dictionary item
         yield {
+            'unique_id': unique_id,  # Include the UUID
             'start_url': start_url,
             'title': title,
             'body_text': body_text,

@@ -1,5 +1,6 @@
 import scrapy
 import csv
+import uuid  # Import the uuid module
 from urllib.parse import urlsplit
 
 class WirecutterArticleScraper(scrapy.Spider):
