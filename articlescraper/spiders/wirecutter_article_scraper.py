@@ -1,6 +1,6 @@
 import scrapy
 import csv
-import uuid  # Import the uuid module
+import uuid
 from urllib.parse import urlsplit
 
 class WirecutterArticleScraper(scrapy.Spider):
@@ -58,3 +58,48 @@ class WirecutterArticleDetailsScraper(scrapy.Spider):
 
 # Run the spider and export the data to a CSV file
 # scrapy crawl wirecutter_article_details_scraper -o wirecutter_article_details.csv
+
+class WirecutterGiftScraper(scrapy.Spider):
+    name = 'wirecutter_gift_scraper'
+     # List of article links to scrape
+    article_links = [] # Update this with the list of links you have
+    # Read the list of links from the CSV file
+    with open('wirecutter_article_links.csv', newline='') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            article_links.append(row['link'])
+
+    def start_requests(self):
+        # Start requests for each article link
+        for link in self.article_links:
+            yield scrapy.Request(url=link, callback=self.parse)
+
+    def parse(self, response):
+        
+        # Create a selector for the specified section
+        products = response.css('section')
+
+        # Loop through each product
+        for product in products:
+            # Extract price information
+            price_text = product.css('a[class*="product-merchant-link-button"] span::text').get()
+            price = price_text.strip('$') if price_text else None  # Remove "$" from the price text
+
+            # Populate gift item
+            gift_item = {}
+            gift_item['id'] = str(uuid.uuid4())  # Generate a unique ID
+            gift_item['name'] = product.css('a[class="product-link"]::text').get()
+            gift_item['image_url'] = product.css('img::attr(src)').get()
+            gift_item['brand'] = product.css('figcaption span.wp-caption-text::text').get() 
+            gift_item['product_source_url'] = product.css('a[class="product-link"]::attr(href)').get()
+            gift_item['description'] = ' '.join(product.css('p::text').getall())
+            gift_item['price'] = price
+            gift_item['giftsource_url'] = response.url
+            gift_item['start_url'] = response.url
+
+            # Check if the 'name' exists, and only yield the gift_item if it does
+            if gift_item['name'] is not None:
+                yield gift_item
+
+# Run the spider and export the data to a CSV file
+# scrapy crawl wirecutter_gift_scraper -o wirecutter_gifts.csv

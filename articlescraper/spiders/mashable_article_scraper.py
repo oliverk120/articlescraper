@@ -4,7 +4,7 @@ import uuid  # Import the uuid module
 from urllib.parse import urlsplit
 
 class MashableGiftsScraper(scrapy.Spider):
-    name = "mashable_gifts_scraper"
+    name = "mashable_article_scraper"
     start_urls = [
         'https://mashable.com/gifts',
     ]
@@ -24,15 +24,15 @@ class MashableGiftsScraper(scrapy.Spider):
                 yield {'link': full_url}
 
 # Run the spider and export the data to a CSV file
-# scrapy crawl mashable_gifts_scraper -o mashable_gifts_links.csv
+# scrapy crawl mashable_article_scraper -o mashable_article_links.csv
 
 class MashableGiftsDetailsScraper(scrapy.Spider):
-    name = "mashable_gifts_details_scraper"
+    name = "mashable_article_details_scraper"
     
     # List of article links to scrape
     article_links = []
     # Read the list of links from the CSV file
-    with open('mashable_gifts_links.csv', newline='') as csvfile:
+    with open('mashable_article_links.csv', newline='') as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
             article_links.append(row['link'])
@@ -65,4 +65,48 @@ class MashableGiftsDetailsScraper(scrapy.Spider):
         }
 
 # Run the spider and export the data to a CSV file
-# scrapy crawl mashable_gifts_details_scraper -o mashable_gifts_details.csv
+# scrapy crawl mashable_article_details_scraper -o mashable_article_details.csv
+
+class MashableGiftScraper(scrapy.Spider):
+    name = 'mashable_gift_scraper'
+    # List of article links to scrape
+    article_links = [] # Update this with the list of links you have
+    # Read the list of links from the CSV file
+    with open('mashable_article_links.csv', newline='') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            article_links.append(row['link'])
+
+    def start_requests(self):
+        # Start requests for each article link
+        for link in self.article_links:
+            yield scrapy.Request(url=link, callback=self.parse)
+
+    def parse(self, response):
+        # Create a selector for all individual products within the page
+        products = response.css('div[data-ga-module="gift-guide-list"]')
+
+        # Loop through each product
+        for product in products:
+            # Extract price information
+            price_text = product.css('a[data-ga-action="buy-link"]::text').get()
+            price = price_text.strip('$').split(' ')[0] if price_text else None  # Remove "$" from the price text
+
+            # Populate gift item
+            gift_item = {}
+            gift_item['id'] = str(uuid.uuid4())  # Generate a unique ID
+            gift_item['name'] = product.css('a[data-ga-action="offer-title"]::text').get()
+            gift_item['image_url'] = product.css('img::attr(src)').get()
+            gift_item['brand'] = product.css('div.text-xs.text-gray-600::text').get()
+            gift_item['product_source_url'] = product.css('a[data-ga-action="offer-title"]::attr(href)').get()
+            gift_item['description'] = ' '.join(product.css('div.editor-content::text').getall())
+            gift_item['price'] = price
+            gift_item['giftsource_url'] = response.url
+            gift_item['start_url'] = response.url
+
+            # Check if the 'name' exists, and only yield the gift_item if it does
+            if gift_item['name'] is not None:
+                yield gift_item
+
+# Run the spider and export the data to a CSV file
+# scrapy crawl mashable_gift_scraper -o mashable_gifts.csv
